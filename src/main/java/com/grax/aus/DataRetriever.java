@@ -16,8 +16,11 @@ import com.sforce.soap.partner.sobject.SObject;
 import com.sforce.ws.ConnectionException;
 import com.sforce.ws.ConnectorConfig;
 
+import io.github.cdimascio.dotenv.Dotenv;
+
 public class DataRetriever {
 
+	private Dotenv dotenv = Dotenv.load();
 	public static void main(String[] args) {
 		DataRetriever dr = new DataRetriever();
 		try {
@@ -29,12 +32,12 @@ public class DataRetriever {
 	
 	public void run() throws ConnectionException, MalformedURLException, IOException {
 		ConnectorConfig config = new ConnectorConfig();
-		config.setUsername("tsellers@grax.com");
-		config.setPassword("grax4TheWin!gQsFriBe1WJ6sYuMDnLzY8PJl");
+		config.setUsername(dotenv.get("SF_USER"));
+		config.setPassword(dotenv.get("SF_PASS"));
 		config.setPrettyPrintXml(true);
 		config.setTraceMessage(true);
 		config.setCompression(true);
-		config.setAuthEndpoint("https://login.salesforce.com/services/Soap/u/49.0");
+		config.setAuthEndpoint(dotenv.get("SF_ENDPOINT"));
 		
 		PartnerConnection pc = Connector.newConnection(config);
 		
@@ -93,5 +96,6 @@ public class DataRetriever {
 		FileOutputStream fos = new FileOutputStream(filename);
 		FileChannel fileChannel = fos.getChannel();
 		fileChannel.transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
+		fos.close();
 	}
 }
