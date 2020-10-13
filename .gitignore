@@ -1,0 +1,9 @@
+data/
+*.csv
+.classpath
+.settings
+.env
+.DS_Store
+.eclipse
+.project
+target/
