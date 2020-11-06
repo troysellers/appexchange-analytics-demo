@@ -51,9 +51,12 @@ public class DataRetriever {
 		
 		String query = String.format("select DownloadUrl, DownloadSize, RequestState from AppAnalyticsQueryRequest where id = '%s'",requestId);
 		boolean isDone = false;
+		
 		while(!isDone) {
+			
 			QueryResult qr = pc.query(query);
 			SObject[] records = qr.getRecords();
+			
 			if(records.length != 1) {
 				System.out.println("RECORDS LENGTH ["+records.length+"]");
 				throw new RuntimeException();
@@ -64,6 +67,8 @@ public class DataRetriever {
 				String downloadUrl = (String)record.getField("DownloadUrl");
 				System.out.println(String.format("We have a file size %s bytes to retrieve from %s", downloadSize, downloadUrl));
 				return downloadUrl;
+			} else {
+				System.out.println("Looping until we have the download URL is complete");
 			}
 			try {
 				TimeUnit.SECONDS.sleep(10);
@@ -96,6 +101,7 @@ public class DataRetriever {
 		FileOutputStream fos = new FileOutputStream(filename);
 		FileChannel fileChannel = fos.getChannel();
 		fileChannel.transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
-		fos.close();
+		fileChannel.close();
+		fos.close(); 
 	}
 }

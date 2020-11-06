@@ -1,5 +1,6 @@
 data/
 *.csv
+*.csv.bak
 .classpath
 .settings
 .env
@@ -7,3 +8,5 @@ data/
 .eclipse
 .project
 target/
+*.pem
+

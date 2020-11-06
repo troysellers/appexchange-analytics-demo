@@ -1,6 +1,7 @@
 package com.grax.aus;
 
-import static org.junit.Assert.assertTrue;
+import java.text.DateFormat;
+import java.util.Calendar;
 
 import org.junit.Test;
 
@@ -9,12 +10,13 @@ import org.junit.Test;
  */
 public class AppTest 
 {
-    /**
-     * Rigorous Test :-)
-     */
+    
     @Test
-    public void shouldAnswerWithTrue()
-    {
-        assertTrue( true );
+    public void testTokenizer() {
+    	DateFormat df = DateFormat.getDateInstance();
+    	Calendar c = Calendar.getInstance();
+    	System.out.println(c.get(Calendar.MONTH));
+    	System.out.println(df.format(c.getTime()));
     }
+
 }

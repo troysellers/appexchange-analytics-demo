@@ -1,7 +1,6 @@
 package com.grax.aus;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
@@ -9,10 +8,14 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.List;
+import java.util.StringTokenizer;
 import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 
 import org.postgresql.copy.CopyIn;
 import org.postgresql.copy.CopyManager;
@@ -29,35 +32,25 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class AppAnalytics {
 	
-	private String packageUsageFile = "packageUsageLog.csv";
-	private String packageUsageSummaryFile = "packageUsageSummary.csv";
-	private String subscriberSnapshotFile = "subscriberSnapshot.csv";
-	
-	private String packageUsageLogCopyQuery = "COPY package_usage_log (timestamp_derived, log_record_type, request_id, organization_id, organization_status,"+ 
-			"organization_edition, organization_country_code, organization_language_locale,	organization_time_zone, organization_instance," + 
-			"user_id_token, user_type, url, package_id, package_version_id, managed_package_namespace, custom_entity, custom_entity_type," + 
-			"operation_type, operation_count, request_status, referrer_uri, session_key, login_key, user_agent, user_country_code," + 
-			"user_time_zone, api_type, api_version,rows_processed, request_size, response_size, http_method, http_status_code," + 
-			"num_fields, app_name, page_app_name, page_context, ui_event_source, ui_event_type, ui_event_sequence_num, target_ui_element," + 
-			"parent_ui_element,	page_url, prevpage_url) from STDIN WITH (FORMAT csv, HEADER true);";
-	
-	private String packageUsageSummaryCopyQuery = "COPY package_usage_summary(date_month, organization_id, package_id, managed_package_namespace," + 
-			"custom_entity, custom_entity_type, user_id_token, user_type, num_creates, num_reads, num_updates, num_deletes," + 
-			"num_views) from STDIN WITH (FORMAT csv, HEADER true);";
-	
-	private String subscriberSnapshotCopyQuery = "COPY subscriber_snapshot(date_requested, organization_id, organization_name, organization_status, "
-			+ "organization_edition, package_id, package_version, managed_package_namespace, custom_entity, count) "
-			+ "from STDIN WITH (FORMAT csv, HEADER true);";
-	
+	protected String packageUsageTable = "package_usage_log";
+	protected String packageUsageSummaryTable = "package_usage_summary";
+	protected String subscriberSnapshotTable = "subscriber_snapshot";
 	
 	private Dotenv dotenv = Dotenv.load();
 	
 	public static void main(String[] args) {
+		
+		if (args.length != 3) {
+			System.out.println("Exiting. You need to pass your SF username, password and security token as paramters");
+			System.exit(1);
+		}
+		
 		AppAnalytics aa = new AppAnalytics();
 		try {
 			aa.run();
 		} catch (Throwable ce) {
 			ce.printStackTrace();
+			System.exit(1);
 		} 
 	}
 
@@ -68,12 +61,9 @@ public class AppAnalytics {
 		
 		while (line != null) {
 			System.out.println("Please enter a choice to load Partner Analytics file:");
-			System.out.println("1 - PackageUsageLog");
-			System.out.println("2 - PackageUsageSummary");
-			System.out.println("3 - SubscriberSnapshot");
-			System.out.println("4 - PackageUsageLog with existing");
-			System.out.println("5 - PackageUsageSummary with existing");
-			System.out.println("6 - SubscriberSnapshot with existing");
+			System.out.println("1 - PackageUsageLog (last 7 days");
+			System.out.println("2 - PackageUsageSummary (last 3 months");
+			System.out.println("3 - SubscriberSnapshot (last 7 days)");
 			System.out.println("q - Quit");
 			System.out.print(":");
 			
@@ -82,12 +72,15 @@ public class AppAnalytics {
 			
 			switch (line) {
 			case "1":
+				System.out.println("getting package usage logs...");
 				getAnalytics("PackageUsageLog", false);
 				break;
 			case "2":
+				System.out.println("getting package summary logs...");
 				getAnalytics("PackageUsageSummary", false);
 				break;
 			case "3":
+				System.out.println("getting subscriber summary logs...");
 				getAnalytics("SubscriberSnapshot", false);
 				break;
 			case "4":
@@ -110,95 +103,194 @@ public class AppAnalytics {
 		}
 	}
 	
-	private void getAnalytics(String type, boolean useExisting) throws ConnectionException, MalformedURLException, IOException {
+	protected void getAnalytics(String type, boolean useExisting) throws  MalformedURLException, IOException {
 		
 		ConnectorConfig config = new ConnectorConfig();
 		config.setUsername(dotenv.get("SF_USER"));
 		config.setPassword(dotenv.get("SF_PASS"));
 		config.setPrettyPrintXml(true);
-		config.setTraceMessage(true);
+		config.setTraceMessage(Boolean.valueOf(dotenv.get("SF_SOAP_TRACE")));
 		config.setCompression(true);
 		config.setAuthEndpoint(dotenv.get("SF_ENDPOINT"));
 		
-		
-		SObject appAnalyticsQueryRequest = new SObject();
-		appAnalyticsQueryRequest.setType("AppAnalyticsQueryRequest");
-		appAnalyticsQueryRequest.setField("DataType", type);
-		Calendar c = Calendar.getInstance(TimeZone.getTimeZone("PST"));
-		String filePath = "";
-		String copyQuery = "";
-		
-		switch (type) {
-		case "PackageUsageLog":
-			c.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH)-2);
-			appAnalyticsQueryRequest.setField("StartTime", c);
-			filePath = packageUsageFile;
-			copyQuery = packageUsageLogCopyQuery;
-			break;
-		case "PackageUsageSummary":
-			c.set(Calendar.MONTH, c.get(Calendar.MONTH)-1);
-			appAnalyticsQueryRequest.setField("StartTime", c);
-			filePath = packageUsageSummaryFile;
-			copyQuery = packageUsageSummaryCopyQuery;
-			break;
-		case "SubscriberSnapshot":
-			c.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH)-2);
-			appAnalyticsQueryRequest.setField("StartTime", c);
-			filePath = subscriberSnapshotFile;
-			copyQuery = subscriberSnapshotCopyQuery;
-			break;
-		default:
-			System.out.println(String.format("Invalid type [%s] requested", type));
-		}
-		
-		DataRetriever dr = new DataRetriever();
-		if (!useExisting) {
+		try {
 			PartnerConnection pc = Connector.newConnection(config);		
-			SaveResult[] results = pc.create(new SObject[] {appAnalyticsQueryRequest});
+			System.out.println("Created connection to Salesforce for "+pc.getUserInfo().getUserFullName());
+			SObject appAnalyticsQueryRequest = new SObject();
+			appAnalyticsQueryRequest.setType("AppAnalyticsQueryRequest");
+			appAnalyticsQueryRequest.setField("DataType", type);
+			Calendar c = Calendar.getInstance(TimeZone.getTimeZone("PST"));
+			String filePath = "";
 			
-			for(SaveResult sr : results) {
-				String recordId = sr.getId();
-				if(recordId != null) {
-					String downloadUrl = dr.pollForDownloadUrl(recordId, pc);
-					if (downloadUrl != null && !downloadUrl.isEmpty()) {
-						dr.downloadFile(downloadUrl, filePath);
-						loadTableFromFile(copyQuery, filePath);
+			switch (type) {
+				case "PackageUsageLog":
+					
+					long daysDifference = 7;
+					Calendar c2 = getLatestPackageUsageLogInsert(); // returns the last day we have received this
+					c.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH)-1); // yesterday should be the latest
+					
+					if (c2 != null ) {
+						// do we need to fetch? 
+						daysDifference = daysBetween(c2, c);
+						if(daysDifference > 7) {
+							daysDifference = 7; //only get the last seven days, we
+						} else if (daysDifference <= 1) {
+							System.out.println("We have the latest package usage logs already in the database... choose another operation.");
+						}
 					}
-				} else {
-						System.out.println("We have a null record id? ");
-				}
-			}	
-		} else {
-			loadTableFromFile(copyQuery, filePath);
+					for(int i=1 ; i<=daysDifference ; i++) {
+						
+						c.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH)-i);
+						
+						appAnalyticsQueryRequest.setField("StartTime", c);
+						filePath = packageUsageTable+"-"+c.getTimeInMillis()+".csv";
+						fetchAndWrite(c, appAnalyticsQueryRequest, filePath, pc);
+						
+					}
+					break;
+					
+				case "PackageUsageSummary":
+					for(int i=1 ; i<4 ; i++) {
+						c.set(Calendar.MONTH, c.get(Calendar.MONTH)-i);
+						appAnalyticsQueryRequest.setField("StartTime", c);
+						filePath = packageUsageSummaryTable+"-"+c.getTimeInMillis()+".csv";
+						fetchAndWrite(c, appAnalyticsQueryRequest, filePath, pc);
+					}
+					break;
+				case "SubscriberSnapshot":
+					Calendar clone = (Calendar)c.clone();
+					c.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH)-1);
+					appAnalyticsQueryRequest.setField("EndTime", c);
+					clone.set(Calendar.DAY_OF_MONTH, c.get(Calendar.DAY_OF_MONTH)-6);
+					appAnalyticsQueryRequest.setField("StartTime", clone);
+					filePath = subscriberSnapshotTable+"-"+c.getTimeInMillis()+".csv";
+					fetchAndWrite(c, appAnalyticsQueryRequest, filePath, pc);
+	
+					break;
+				default:
+					System.out.println(String.format("Invalid type [%s] requested", type));
+			}
+		} catch (ConnectionException ce) {
+			ce.printStackTrace();
+			System.exit(1);
 		}
 	}
 	
-	
-	private void loadTableFromFile(String copyQuery, String filePath) {
-		System.out.printf("Attempting to COPY from %s%n",filePath);
-		try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))){
-			CopyManager copyManager = new CopyManager((BaseConnection)conn);
-			CopyIn copyIn = copyManager.copyIn(copyQuery);
+	protected void fetchAndWrite(Calendar c, SObject appAnalyticsQueryRequest, String filePath, PartnerConnection pc) throws ConnectionException, MalformedURLException, IOException {
+		DataRetriever dr = new DataRetriever();
+
+		
+		SaveResult[] results = pc.create(new SObject[] {appAnalyticsQueryRequest});
+		System.out.println("created a new job for "+appAnalyticsQueryRequest.getType());
+		String table = filePath.split("-")[0];
+		for(SaveResult sr : results) {
+			String recordId = sr.getId();
 			
-			List<String> lines = Files.readAllLines(Paths.get(filePath));
-			
-			for(int i=1 ; i<lines.size() ; i++) {
-				String row = lines.get(i);
-				if(!row.endsWith("\n")) {
-					row += "\n";
+			if(recordId != null) {
+				String downloadUrl = dr.pollForDownloadUrl(recordId, pc);
+				if (downloadUrl != null && !downloadUrl.isEmpty()) {
+					dr.downloadFile(downloadUrl, filePath);
+					//copyToPostgres(filePath, table);
 				}
-				byte[] bytes = row.getBytes();
-				copyIn.writeToCopy(bytes, 0, bytes.length);
+			} else {
+					System.out.println("We have a null record id? ");
 			}
-			long rowsInserted = copyIn.endCopy();
-			System.out.printf("%d row(s) inserted %n", rowsInserted);
+		}	
+	}
+	
+	protected long copyToPostgres (String filepath, String table) {
+		try {
+			List<String> lines = Files.readAllLines(Paths.get(filepath));
+			String copyQuery = getCopyQuery(lines.get(0), table);
+			
+			try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))){
+				CopyManager copyManager = new CopyManager((BaseConnection)conn);
+				CopyIn copyIn = copyManager.copyIn(copyQuery);
+				
+				for(int i=1 ; i<lines.size() ; i++) {
+					String row = lines.get(i);
+					if(!row.endsWith("\n")) {
+						row += "\n";
+					}
+					byte[] bytes = row.getBytes();
+					copyIn.writeToCopy(bytes, 0, bytes.length);
+				}
+				long rowsInserted = copyIn.endCopy();
+				System.out.printf("%d row(s) inserted %n", rowsInserted);
+				return rowsInserted;
+			} catch (SQLException sq) {
+				sq.printStackTrace();
+				System.exit(1);
+			}
+			
+		} catch (IOException ioe) {
+			ioe.printStackTrace();
+			System.exit(1);
+		}
+		return -1;
+	}
+	protected String getCopyQuery(String line, String table) {
+		StringTokenizer stok = new StringTokenizer(line,",");
+		StringBuilder builder = new StringBuilder("COPY ");
+		builder.append(table);
+		builder.append("(");
+		while(stok.hasMoreTokens()) {
+			String columnHeader = stok.nextToken();
+			// fix to get  around the API returning a column header as a reserved SQL word. 
+			// TODO : could be much cleaner. 
+			if(columnHeader.equalsIgnoreCase("date")) {
+				builder.append("date_requested");
+			} else {
+				builder.append(columnHeader);
+			}
+			if(stok.hasMoreTokens()) {
+				builder.append(",");
+			} else {
+				builder.append(")");
+			}
+		}
+		builder.append(" from STDIN WITH (FORMAT csv, HEADER true);");
+		return builder.toString();
+	}
+
+	
+	private Calendar getStartCalendarForPackageSummaryLog() {
+		
+		try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))){
+			PreparedStatement ps = conn.prepareStatement("select distinct(date_month) as last_run from package_usage_summary order by 1 desc");
+			ResultSet rs = ps.executeQuery();
+			rs.next();
+			long time = rs.getDate(1).getTime();
+			Calendar c = Calendar.getInstance();
+			c.setTimeInMillis(time);
+			return c;		
 		} catch (SQLException sq) {
 			sq.printStackTrace();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
+			System.exit(1);
 		}
+		return null;
 	}
 	
+	private Calendar getLatestPackageUsageLogInsert() {
+		
+		try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))){
+			PreparedStatement ps = conn.prepareStatement("select max(date_trunc('day',timestamp_derived)) as last_run from package_usage_log");
+			ResultSet rs = ps.executeQuery();
+			Calendar c = Calendar.getInstance();
+			if (rs.getFetchSize() > 0 ) { 
+				rs.next();
+				long time = rs.getDate(1).getTime();
+				c.setTimeInMillis(time);
+				return c;
+			}
+		} catch (SQLException sq) {
+			sq.printStackTrace();
+			System.exit(1);
+		}
+		return null;
+	}
+	
+	private long daysBetween(Calendar start, Calendar end) {
+		return TimeUnit.MILLISECONDS.toDays(Math.abs(end.getTimeInMillis() - start.getTimeInMillis()));
+	}
 }
