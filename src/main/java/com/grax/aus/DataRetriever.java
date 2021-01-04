@@ -46,7 +46,14 @@ public class DataRetriever {
 			downloadFile(downloadUrl, "appanalytics.csv");
 		}
 	}
-	
+	/**
+	 * Loop and check if Analytics request has been completed. 
+	 * 
+	 * @param requestId
+	 * @param pc
+	 * @return
+	 * @throws ConnectionException
+	 */
 	public String pollForDownloadUrl(String requestId, PartnerConnection pc) throws ConnectionException{
 		
 		String query = String.format("select DownloadUrl, DownloadSize, RequestState from AppAnalyticsQueryRequest where id = '%s'",requestId);
@@ -55,6 +62,7 @@ public class DataRetriever {
 		while(!isDone) {
 			
 			QueryResult qr = pc.query(query);
+			
 			SObject[] records = qr.getRecords();
 			
 			if(records.length != 1) {
@@ -80,7 +88,7 @@ public class DataRetriever {
 		return null;
 	}
 	
-	public boolean requestFinished(SObject record) {
+	private boolean requestFinished(SObject record) {
 		String requestState = (String)record.getField("RequestState");
 		switch (requestState) {
 		case "Complete" :
@@ -95,13 +103,21 @@ public class DataRetriever {
 			return false;
 		}
 	}
-	
-	public void downloadFile(String downloadUrl, String filename) throws MalformedURLException, IOException {
+	/**
+	 * returns filePath where file was stored.
+	 * @param downloadUrl
+	 * @param filename
+	 * @return
+	 * @throws MalformedURLException
+	 * @throws IOException
+	 */
+	public String downloadFile(String downloadUrl, String filename) throws MalformedURLException, IOException {
 		ReadableByteChannel readableByteChannel = Channels.newChannel(new URL(downloadUrl).openStream());
 		FileOutputStream fos = new FileOutputStream(filename);
 		FileChannel fileChannel = fos.getChannel();
 		fileChannel.transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
 		fileChannel.close();
 		fos.close(); 
+		return filename;
 	}
 }

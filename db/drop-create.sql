@@ -4,7 +4,7 @@ DROP TABLE IF EXISTS package_usage_log;
 
 CREATE TABLE IF NOT EXISTS subscriber_snapshot  (
 	id SERIAL,
-	date DATE,
+	date TEXT,
 	organization_id TEXT,
 	organization_name TEXT,
 	organization_status TEXT,
@@ -90,8 +90,8 @@ CREATE TABLE IF NOT EXISTS package_usage_log (
 	event_count INTEGER
 );
 
-GRANT ALL PRIVILEGES on ALL TABLES IN SCHEMA public TO troybo;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO troybo;
+GRANT ALL PRIVILEGES on ALL TABLES IN SCHEMA public TO analytics;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO analytics;
 
 	
 
