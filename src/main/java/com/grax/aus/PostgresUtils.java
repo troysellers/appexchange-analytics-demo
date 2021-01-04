@@ -29,6 +29,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class PostgresUtils 
 {
 	private Dotenv dotenv = Dotenv.load();
+	
     public static void main( String[] args ) {
     	
     	PostgresUtils a = new PostgresUtils();
@@ -36,22 +37,20 @@ public class PostgresUtils
     		a.copySubscriberSnapshotToPostgres("subscriber_snapshot-1609719350697.csv");
     		a.copyPackageSummaryToPostgres("package_usage_summary-1609718378717.csv");
     		a.copyPackageUsageLogToPostgres("package_usage_log-1609724908999.csv");
-    	} catch (IOException ioe) {
-    		ioe.printStackTrace();
+    	} catch (Exception e) {
+    		e.printStackTrace();
     		System.exit(1);
     	}
     }
     
-    protected void run() throws IOException {
-    	File f = new File("./");
-    	for(String s : f.list()) {
-    		if (s.endsWith(".csv")) {
-    			copyToPostgres(s);
-    		}
-    	}
-	}
-    
-    public void copyPackageUsageLogToPostgres(String filePath) throws IOException {
+    /**
+     * Takes a CSV file that has been downloaded from a PackageUsageLog request to the Salesforce API. 
+     * Will build the PG Copy and insert the data into the PackageUsageLog table name is defined in  @see com.grax.aus.AnalyticsRequestType.PACKAGE_USAGE_LOG
+     * 
+     * @param filePath
+     * @throws IOException, SQLException, IllegalArgumentException
+     */
+    public void copyPackageUsageLogToPostgres(String filePath) throws IOException, SQLException, IllegalArgumentException {
     	if(!filePath.endsWith(".csv")) {
     		throw new IllegalArgumentException("PackageLogFile file path should reference a CSV file. Path given is "+filePath);
     	} else {
@@ -73,7 +72,7 @@ public class PostgresUtils
     		reader.close();
     	}
     }
-    public void copySubscriberSnapshotToPostgres(String filePath) throws IOException {
+    public void copySubscriberSnapshotToPostgres(String filePath) throws IOException, SQLException, IllegalArgumentException {
     
     	if(!filePath.endsWith(".csv")) {
     		throw new IllegalArgumentException("SubscriberSnapshot file path should reference a CSV file. Path given is "+filePath);
@@ -88,13 +87,13 @@ public class PostgresUtils
     		reader.close();
     		
     		String day = firstDataLine.split(",")[0];
-    		if(!dayExists(day, "subscriber_snapshot")) {
+    		if(!dayExists(day)) {
     			copyToPostgres(filePath);
     		}
     	}
     	
     }
-    public void copyPackageSummaryToPostgres(String filePath) throws IllegalArgumentException, IOException{
+    public void copyPackageSummaryToPostgres(String filePath) throws IllegalArgumentException, IOException, SQLException {
     	
     	// validate CSV
     	if(!filePath.endsWith(".csv")) {
@@ -120,11 +119,17 @@ public class PostgresUtils
     		}
     	}    	
     }
-    
-    protected void copyToPostgres(String filePath) throws IOException{
+    /*
+     * Builds the copy query from the given CSV file. 
+     * Assumes the database table exists.
+     * 
+     * @param filePath
+     * @throws IOException
+     */
+    private void copyToPostgres(String filePath) throws IOException, SQLException {
 
     	BufferedReader reader = Files.newBufferedReader(Paths.get(filePath));
-    	String copyQuery = getCopyQuery(reader.readLine(), filePath.split("-")[0]);
+    	String copyQuery = getCopyQuery(reader.readLine(), filePath.split(".")[0]);
     	
 		try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))){
 			CopyManager copyManager = new CopyManager((BaseConnection)conn);
@@ -141,12 +146,13 @@ public class PostgresUtils
 			long rowsInserted = copyIn.endCopy();
 			System.out.printf("%d row(s) inserted %n", rowsInserted);
 			renameFile(filePath);
-		} catch (SQLException sq) {
-			sq.printStackTrace();
-			System.exit(1);
 		}	
     }
-    
+    /*
+     * builds the PG Copy query from the header that is downloaded from Salesforce API. 
+     * 
+     * The return can be passed to PG Copy. 
+     */
 	private String getCopyQuery(String line, String table) {
 		StringTokenizer stok = new StringTokenizer(line,",");
 		StringBuilder builder = new StringBuilder("COPY ");
@@ -154,13 +160,7 @@ public class PostgresUtils
 		builder.append("(");
 		while(stok.hasMoreTokens()) {
 			String columnHeader = stok.nextToken();
-			// fix to get  around the API returning a column header as a reserved SQL word. 
-			// TODO : could be much cleaner. 
-			/*if(columnHeader.equalsIgnoreCase("date")) {
-				builder.append("date_requested");
-			} else { */
-				builder.append(columnHeader);
-			//}
+			builder.append(columnHeader);
 			if(stok.hasMoreTokens()) {
 				builder.append(",");
 			} else {
@@ -170,16 +170,24 @@ public class PostgresUtils
 		builder.append(" from STDIN WITH (FORMAT csv, HEADER true);");
 		return builder.toString();
 	}
+	
+	/*
+	 * Renames the file once processed by prepending the system time we completed. 
+	 */
     private void renameFile(String filePath) {
     	File f = new File(filePath);
-    	f.renameTo(new File(filePath+".bak"));
+    	f.renameTo(new File(System.currentTimeMillis()+"."+filePath));
     }
     
-    private boolean monthExists(String month) {
+    /*
+     * Checks if there any records in the package_usage_summary table for this month. 
+     * Returns true if a non-zero is returned from a count(*) query. 
+     */
+    private boolean monthExists(String month) throws SQLException {
     	
-    	System.out.format("Testing if month [%s] exists  in the database\n", month);
+    	System.out.format("Testing if month [%s] exists  in the database table %s\n", month, AnalyticsRequestType.PACKAGE_USAGE_SUMMARY.getDatabaseTableName() );
     	try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))) {
-    		PreparedStatement ps = conn.prepareStatement("select count(*) from package_usage_summary where month = ?");
+    		PreparedStatement ps = conn.prepareStatement("select count(*) from "+AnalyticsRequestType.PACKAGE_USAGE_SUMMARY.getDatabaseTableName()+" where month = ?");
     		ps.setString(1, month);
     		ResultSet rs = ps.executeQuery();
     		if(rs.next()) {
@@ -187,19 +195,20 @@ public class PostgresUtils
     			System.out.format("Month exists - %s\n", count != 0);
     			return count != 0;
     		}
-    	} catch (SQLException sqle) {
-    		sqle.printStackTrace();
-    		System.exit(1);
     	}
+    	
     	return false;
     }
     
-    private boolean dayExists(String day, String table) {
+    /*
+     * Checks if any records in the subscriber snapshot table exist for this day.
+     */
+    private boolean dayExists(String day) throws SQLException{
     	
-    	System.out.format("Testing if day [%s] exists for table [%s]\n", day, table);
+    	System.out.format("Testing if day [%s] exists for table [%s]\n", day, AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getDatabaseTableName());
     	
     	try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))) {
-    		PreparedStatement ps = conn.prepareStatement("select count(*) from "+table+" where date = ?");
+    		PreparedStatement ps = conn.prepareStatement("select count(*) from "+AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getDatabaseTableName()+" where date = ?");
     		ps.setString(1, day);
     		ResultSet rs = ps.executeQuery();
     		if(rs.next()) {
@@ -207,10 +216,7 @@ public class PostgresUtils
     			System.out.format("Day exists -%s\n",  count != 0);
     			return count != 0;
     		}
-    	} catch (SQLException sqle) {
-    		sqle.printStackTrace();
-    		System.exit(1);
-    	}
+    	} 
     	
     	return false;
     }
@@ -219,11 +225,11 @@ public class PostgresUtils
      * check if we have records in the package_usage_log table for the particular day
      * 
      */
-    private boolean timestampsExistForDay(Instant instant) {
-    	System.out.format("Testing if we have records in package_usage_log for the day %s \n", instant.toString());
+    private boolean timestampsExistForDay(Instant instant) throws SQLException {
+    	System.out.format("Testing if we have records in %s table for the day %s \n", AnalyticsRequestType.PACKAGE_USAGE_LOG.getDatabaseTableName(), instant.toString());
     	
     	try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))) {
-    		PreparedStatement ps = conn.prepareStatement("select count(*) from package_usage_log where date(timestamp_derived) = ?");
+    		PreparedStatement ps = conn.prepareStatement("select count(*) from "+AnalyticsRequestType.PACKAGE_USAGE_LOG.getDatabaseTableName()+" where date(timestamp_derived) = ?");
     		ps.setDate(1, new Date(instant.toEpochMilli()));
     		ResultSet rs = ps.executeQuery();
     		if(rs.next()) {
@@ -231,10 +237,7 @@ public class PostgresUtils
     			System.out.format("We have %d records for day %s \n", count, instant.toString());
     			return count != 0;
     		}
-    	} catch (SQLException sqle) {
-    		sqle.printStackTrace();
-    		System.exit(1);
-    	}
+    	} 
     	
     	return false;
     }

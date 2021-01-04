@@ -1,6 +1,7 @@
 package com.grax.aus;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -26,7 +27,7 @@ public class PackageUsageLog {
 		}
 	}
 	
-	public void run() throws ConnectionException, IOException {
+	public void run() throws ConnectionException, IOException, SQLException {
 		
 		PartnerConnection conn = SFUtil.getConnection(dotenv);
 		SObject analyticsRequest = SFUtil.getAnalyticsRequest(AnalyticsRequestType.PACKAGE_USAGE_LOG);
@@ -49,7 +50,7 @@ public class PackageUsageLog {
 				String recordId = sr.getId();
 				String downloadURL = dr.pollForDownloadUrl(recordId, conn);
 				if(downloadURL != null) {
-					String filePath = dr.downloadFile(downloadURL, "package_usage_log-"+System.currentTimeMillis()+".csv");
+					String filePath = dr.downloadFile(downloadURL, AnalyticsRequestType.PACKAGE_USAGE_LOG.getFileName());
 					pgUtils.copyPackageUsageLogToPostgres(filePath);
 				}else {
 					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);

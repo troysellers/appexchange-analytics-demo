@@ -55,7 +55,7 @@ public class PackageUsageSummary {
 				String downloadUrl = dr.pollForDownloadUrl(recordId, conn);
 				if (downloadUrl != null) {
 						// file name is used to determine the table name as well. 
-					String filePath = dr.downloadFile(downloadUrl, "package_usage_summary-"+System.currentTimeMillis()+".csv");
+					String filePath = dr.downloadFile(downloadUrl, AnalyticsRequestType.PACKAGE_USAGE_SUMMARY.getFileName());
 					pgUtils.copyPackageSummaryToPostgres(filePath);
 				} else {
 					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);

@@ -1,6 +1,7 @@
 package com.grax.aus;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -27,7 +28,7 @@ public class SubscriberSnapshot {
 		}
 	}
 
-	public void run() throws ConnectionException, IOException {
+	public void run() throws ConnectionException, IOException, SQLException {
 		
 		PartnerConnection conn = SFUtil.getConnection(dotenv);
 		SObject analyticsRequest = SFUtil.getAnalyticsRequest(AnalyticsRequestType.SUBSCRIBER_SNAPSHOT);
@@ -55,7 +56,7 @@ public class SubscriberSnapshot {
 				String recordId = sr.getId();
 				String downloadUrl = dr.pollForDownloadUrl(recordId, conn);
 				if(downloadUrl != null) {
-					String filePath = dr.downloadFile(downloadUrl, "subscriber_snapshot-"+System.currentTimeMillis()+".csv");
+					String filePath = dr.downloadFile(downloadUrl, AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getFileName());
 					pgUtils.copySubscriberSnapshotToPostgres(filePath);
 				} else {
 					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);
