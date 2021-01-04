@@ -129,7 +129,7 @@ public class PostgresUtils
     private void copyToPostgres(String filePath) throws IOException, SQLException {
 
     	BufferedReader reader = Files.newBufferedReader(Paths.get(filePath));
-    	String copyQuery = getCopyQuery(reader.readLine(), filePath.split(".")[0]);
+    	String copyQuery = getCopyQuery(reader.readLine(), filePath.split("\\.")[0]);
     	
 		try (Connection conn = DriverManager.getConnection(dotenv.get("JDBC_DATABASE_URL"))){
 			CopyManager copyManager = new CopyManager((BaseConnection)conn);

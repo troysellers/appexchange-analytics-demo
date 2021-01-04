@@ -24,6 +24,14 @@ public class AppTest
     	assertEquals("PackageUsageLog",AnalyticsRequestType.PACKAGE_USAGE_LOG.getValue());
     	assertEquals("PackageUsageSummary",AnalyticsRequestType.PACKAGE_USAGE_SUMMARY.getValue());
     	assertEquals("SubscriberSnapshot", AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getValue());
+    	
+    	assertEquals("subscriber_snapshot.csv", AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getFileName());
+    	assertEquals("package_usage_summary.csv", AnalyticsRequestType.PACKAGE_USAGE_SUMMARY.getFileName());
+    	assertEquals("package_usage_log.csv", AnalyticsRequestType.PACKAGE_USAGE_LOG.getFileName());
+    	
+    	assertEquals("subscriber_snapshot", AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getDatabaseTableName());
+    	assertEquals("package_usage_summary", AnalyticsRequestType.PACKAGE_USAGE_SUMMARY.getDatabaseTableName());
+    	assertEquals("package_usage_log", AnalyticsRequestType.PACKAGE_USAGE_LOG.getDatabaseTableName());
     }
     @Test
     public void testCalendar() {
@@ -41,12 +49,14 @@ public class AppTest
     	System.out.println(endTime.getTime());
     	
     }
-@Test
+    @Test
     public void testTimestamp() {
     	String iso = "2021-01-02T05:02:56.452Z";
-    	
     	Instant i = Instant.parse(iso);
-
 	}
+    @Test
+    public void test() {
+    	System.out.println(AnalyticsRequestType.SUBSCRIBER_SNAPSHOT.getFileName().split("\\.")[0]);
+    }
 }
 	

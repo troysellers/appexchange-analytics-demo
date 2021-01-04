@@ -102,13 +102,13 @@
 					<descriptorRefs>
 						<descriptorRef>jar-with-dependencies</descriptorRef>
 					</descriptorRefs>
-					<archive>
-						<manifest>
-							<mainClass>com.grax.aus.PackageUsageSummary</mainClass>
-							<mainClass>com.grax.aus.PackageUsageLog</mainClass>
-							<mainClass>com.grax.aus.SubscriberSnapshot</mainClass>
-						</manifest>
-					</archive>
+<!-- 					<archive> -->
+<!-- 						<manifest> -->
+<!-- 							<mainClass>com.grax.aus.PackageUsageSummary</mainClass> -->
+<!-- 							<mainClass>com.grax.aus.SubscriberSnapshot</mainClass> -->
+<!-- 							<mainClass>com.grax.aus.PackageUsageLog</mainClass> -->
+<!-- 						</manifest> -->
+<!-- 					</archive> -->
 				</configuration>
 				<executions>
 					<execution>

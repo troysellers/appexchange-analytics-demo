@@ -59,18 +59,18 @@ This will build an executable jar in the target directory that you can then use
 ### get the subscriber snapshot for last month
 
 ```
-> java -jar target/analytics-jar-with-dependencies.jar com.grax.aus.SubscriberSnapshot
+> java -cp target/analytics-jar-with-dependencies.jar com.grax.aus.SubscriberSnapshot
 ```
 
 ### get the package log file for yesterday
 
 ```
-> java -jar target/analytics-jar-with-dependencies.jar com.grax.aus.PackageUsageLog
+> java -cp target/analytics-jar-with-dependencies.jar com.grax.aus.PackageUsageLog
 ```
 
 ### get the package usage summary for yesterday
 
 ```
-> java -jar target/analytics-jar-with-dependencies.jar com.grax.aus.PackageUsageSummary
+> java -cp target/analytics-jar-with-dependencies.jar com.grax.aus.PackageUsageSummary
 ```
 
