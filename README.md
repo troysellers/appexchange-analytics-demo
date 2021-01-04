@@ -12,6 +12,8 @@ JDBC_DATABASE_URL=jdbc:postgresql://localhost:5432/app-analytics?user=troybo&pas
 SF_SOAP_TRACE=[true|false]
 ```
 
+Setting the soap trace to true will print the output of the API calls from the Partner API java library. It's verbose, but can be useful for debugging.
+
 ## Setup
 You will need to have the AppExchange Analytics package enabled for this to work, it will not run on developer orgs, sandboxes etc 
 The user that is listed above will need to have access to the relevant objects to query as well as API permissions enabled. 
@@ -51,3 +53,24 @@ Clone this repository and then build using Maven
 ```
 > mvn clean package
 ```
+
+This will build an executable jar in the target directory that you can then use
+
+### get the subscriber snapshot for last month
+
+```
+> java -jar target/analytics-jar-with-dependencies.jar com.grax.aus.SubscriberSnapshot
+```
+
+### get the package log file for yesterday
+
+```
+> java -jar target/analytics-jar-with-dependencies.jar com.grax.aus.PackageUsageLog
+```
+
+### get the package usage summary for yesterday
+
+```
+> java -jar target/analytics-jar-with-dependencies.jar com.grax.aus.PackageUsageSummary
+```
+

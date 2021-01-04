@@ -51,6 +51,8 @@ public class PackageUsageLog {
 				if(downloadURL != null) {
 					String filePath = dr.downloadFile(downloadURL, "package_usage_log-"+System.currentTimeMillis()+".csv");
 					pgUtils.copyPackageUsageLogToPostgres(filePath);
+				}else {
+					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);
 				}
 			}
 		}

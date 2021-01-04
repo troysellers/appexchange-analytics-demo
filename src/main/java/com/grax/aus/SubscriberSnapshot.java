@@ -56,7 +56,9 @@ public class SubscriberSnapshot {
 				String downloadUrl = dr.pollForDownloadUrl(recordId, conn);
 				if(downloadUrl != null) {
 					String filePath = dr.downloadFile(downloadUrl, "subscriber_snapshot-"+System.currentTimeMillis()+".csv");
-					//pgUtils.
+					pgUtils.copySubscriberSnapshotToPostgres(filePath);
+				} else {
+					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);
 				}
 			}
 		}

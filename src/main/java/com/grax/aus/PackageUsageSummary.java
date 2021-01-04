@@ -58,7 +58,7 @@ public class PackageUsageSummary {
 					String filePath = dr.downloadFile(downloadUrl, "package_usage_summary-"+System.currentTimeMillis()+".csv");
 					pgUtils.copyPackageSummaryToPostgres(filePath);
 				} else {
-					System.out.println(String.format("Unable to get a download url for %s [URL is %s]", recordId, downloadUrl));
+					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);
 				}
 			}
 		}

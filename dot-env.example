@@ -1,0 +1,5 @@
+SF_USER=salesforce@user.com
+SF_PASS=DONT_LEAK_CREDS_IN_GITHUB!
+SF_ENDPOINT=https://login.salesforce.com/services/Soap/u/50.0
+JDBC_DATABASE_URL=jdbc:postgresql://localhost:5432/app-analytics?password=dontLeakDBCredsHereEither!&user=db_user
+SF_SOAP_TRACE=true
