@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.StringTokenizer;
@@ -240,5 +241,31 @@ public class PostgresUtils
     	} 
     	
     	return false;
+    }
+    /**
+     * Check whether we have rows in the database for the specific date we are about to call. 
+     * Return true if they exist. 
+     * 
+     * @param c
+     * @param type
+     * @return boolean
+     */
+    public boolean doRowsExist(Calendar c, AnalyticsRequestType type) throws SQLException{
+    	
+    	switch (type) {
+    	case PACKAGE_USAGE_SUMMARY: 
+    		String month = String.format("%s-%s", c.get(Calendar.YEAR), c.get(Calendar.MONTH)+1); //months are zero indexed, 1 indexed in the data back from SForce
+    		return monthExists(month);
+    		
+    	case SUBSCRIBER_SNAPSHOT: 
+    		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    		return dayExists(sdf.format(c.getTime()));
+    		
+		case PACKAGE_USAGE_LOG: 
+			return timestampsExistForDay(c.toInstant());
+		default:
+			throw new IllegalArgumentException("Unexpected value: " + type);
+		
+    	}
     }
 }

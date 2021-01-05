@@ -5,11 +5,16 @@
 # 
 PROJECT_DIR=/Users/troysellers/projects/appexchange-analytics-demo
 
+
 # --- 
 # The rest should remain as is
 #
+
 LOG_DIR=$PROJECT_DIR/logs
-LOG_FILE=$LOG_DIR/run.log
+FILENAME=run.log
+
+LOG_FILE=$LOG_DIR/$FILENAME
+
 CLASSPATH=$PROJECT_DIR/.env:$PROJECT_DIR/target/analytics-jar-with-dependencies.jar
 
 # mvn clean package > $LOG_DIR/build.log
@@ -27,9 +32,10 @@ echo "Starting Package Summary ~~" >> $LOG_FILE
 java -cp $CLASSPATH com.grax.aus.PackageUsageSummary >> $LOG_FILE
 echo "\n---\n" >> $LOG_FILE
 
-echo Process executed in (($(date +%s) - $START_TIME)) seconds >> $LOG_FILE
+END_TIME=$(date +%s)
+echo "Process executed in $(($END_TIME - $START_TIME)) seconds" >> $LOG_FILE
 
-mv mv $LOG_DIR/$LOG_FILE $LOG_DIR/$(date +%s)$LOG_FILE
+mv $LOG_FILE $LOG_DIR/$(date +%s)$FILENAME
 
 
 

@@ -29,33 +29,40 @@ public class PackageUsageLog {
 	
 	public void run() throws ConnectionException, IOException, SQLException {
 		
-		PartnerConnection conn = SFUtil.getConnection(dotenv);
-		SObject analyticsRequest = SFUtil.getAnalyticsRequest(AnalyticsRequestType.PACKAGE_USAGE_LOG);
 		PostgresUtils pgUtils = new PostgresUtils();
 		
 		Calendar startTime = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
 		startTime.add(Calendar.DAY_OF_MONTH, -2); 		
-		analyticsRequest.setField("StartTime", startTime);
 		
-		SaveResult[] saveResults = conn.create(new SObject[] {analyticsRequest});
-		DataRetriever dr = new DataRetriever();
+		if(!pgUtils.doRowsExist(startTime, AnalyticsRequestType.PACKAGE_USAGE_LOG)) {
 		
-		for(SaveResult sr : saveResults) {
-			if(!sr.isSuccess()) {
-				System.err.println("Unable to create analytics reqeust for "+AnalyticsRequestType.PACKAGE_USAGE_LOG);
-				for(Error e : sr.getErrors()) {
-					System.err.println(e.getMessage());
-				}
-			} else {
-				String recordId = sr.getId();
-				String downloadURL = dr.pollForDownloadUrl(recordId, conn);
-				if(downloadURL != null) {
-					String filePath = dr.downloadFile(downloadURL, AnalyticsRequestType.PACKAGE_USAGE_LOG.getFileName());
-					pgUtils.copyPackageUsageLogToPostgres(filePath);
-				}else {
-					System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);
+			PartnerConnection conn = SFUtil.getConnection(dotenv);
+			SObject analyticsRequest = SFUtil.getAnalyticsRequest(AnalyticsRequestType.PACKAGE_USAGE_LOG);
+	
+			analyticsRequest.setField("StartTime", startTime);
+			
+			SaveResult[] saveResults = conn.create(new SObject[] {analyticsRequest});
+			DataRetriever dr = new DataRetriever();
+			
+			for(SaveResult sr : saveResults) {
+				if(!sr.isSuccess()) {
+					System.err.println("Unable to create analytics reqeust for "+AnalyticsRequestType.PACKAGE_USAGE_LOG);
+					for(Error e : sr.getErrors()) {
+						System.err.println(e.getMessage());
+					}
+				} else {
+					String recordId = sr.getId();
+					String downloadURL = dr.pollForDownloadUrl(recordId, conn);
+					if(downloadURL != null) {
+						String filePath = dr.downloadFile(downloadURL, AnalyticsRequestType.PACKAGE_USAGE_LOG.getFileName());
+						pgUtils.copyPackageUsageLogToPostgres(filePath);
+					}else {
+						System.err.println("We didn't get a download URL from the Salesforce API for Analytics Record ID "+recordId);
+					}
 				}
 			}
+		} else {
+			System.out.println("We are skipping the collection of Package Usage Log because we already have the days records for "+startTime.getTime());
 		}
 		
 	}
