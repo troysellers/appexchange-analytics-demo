@@ -9,4 +9,4 @@ data/
 .project
 target/
 *.pem
-
+logs/*.log
